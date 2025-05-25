@@ -38,10 +38,20 @@ body {
     color:#555;
   }
   .input-panel label {
-    display:block;
-    margin-bottom:12px;
-    font-size:14px;
-  }
+    display: flex;
+    align-items: center;
+    margin-bottom: 12px;
+    font-size: 14px;
+}
+
+.input-panel label input[type="number"] {
+    margin-left: auto;
+    width: 100px;
+}
+
+.input-panel label input[type="checkbox"] {
+    margin-right: 8px;
+}
   .input-panel input[type="number"],
   .input-panel input[type="checkbox"] {
     margin-left:8px;
