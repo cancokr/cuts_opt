@@ -1,0 +1,239 @@
+<!-- cuts.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Cutting Layout Optimizer</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="app-header">
+    <h1>Cutting Layout Optimizer</h1>
+    <div id="pieceSizeDisplay">Piece size: -- x -- mm</div>
+  </header>
+  <div class="container">
+    <div class="input-panel">
+      <h2>Input Parameters</h2>
+      <label>Sheet Width (mm): <input type="number" id="sheetWidth" value="1500" /></label>
+      <label>Sheet Height (mm): <input type="number" id="sheetHeight" value="1200" /></label>
+      <label>Sheet Offset (mm): <input type="number" id="sheetOffset" value="3" /></label>
+      <hr/>
+      <label>Piece Width (mm): <input type="number" id="pieceWidth" value="200" /></label>
+      <label>Piece Height (mm): <input type="number" id="pieceHeight" value="150" /></label>
+      <label>Piece Gap (mm): <input type="number" id="pieceGap" value="5" /></label>
+      <label><input type="checkbox" id="curve3d"/> 3D Curve</label>
+      <label>Radius (mm): <input type="number" id="radius" value="1000" disabled/></label>
+      <button id="updateBtn">Update</button>
+    </div>
+    <div class="canvas-grid">
+      <div class="canvas-container main">
+        <h2 id="hybridTitle">Hybrid: -- pcs, --%</h2>
+        <canvas id="hybridCanvas"></canvas>
+      </div>
+      <div class="side-container">
+        <div class="canvas-container">
+          <h2 id="horizTitle">Horizontal Only: -- pcs, --%</h2>
+          <canvas id="horizCanvas"></canvas>
+        </div>
+        <div class="canvas-container">
+          <h2 id="vertTitle">Vertical Only: -- pcs, --%</h2>
+          <canvas id="vertCanvas"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  // --- layout calc functions ---
+  function calculateLayout(areaW, areaH, pw, ph, gap) {
+    const cols = areaW < pw ? 0 : 1 + Math.floor((areaW - pw) / (pw + gap));
+    const rows = areaH < ph ? 0 : 1 + Math.floor((areaH - ph) / (ph + gap));
+    const positions = [];
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        positions.push({ x: c*(pw+gap), y: r*(ph+gap), w: pw, h: ph });
+      }
+    }
+    return { count: cols*rows, positions };
+  }
+
+  function findOptimalRemain(areaW, areaH, pw, ph, gap) {
+    let best = { count:0, positions:[], dims:{w:pw,h:ph} };
+    [[pw,ph], [ph,pw]].forEach(([rw,rh])=>{
+      if (rw>areaW||rh>areaH) return;
+      const { count, positions } = calculateLayout(areaW, areaH, rw, rh, gap);
+      if (count > best.count) best = { count, positions, dims:{w:rw,h:rh} };
+    });
+    return best;
+  }
+
+  function solve(uw, uh, pw, ph, gap) {
+    let best = { count:0, positions:[] };
+    [[pw,ph], [ph,pw]].forEach(([mw,mh])=>{
+      if (mw>uw||mh>uh) return;
+      const { count, positions } = calculateLayout(uw, uh, mw, mh, gap);
+      let pos = positions.slice(), total = count;
+      // right remainder
+      const usedW = count ? Math.max(...positions.map(p=>p.x+p.w)) + gap : 0;
+      const rem1 = findOptimalRemain(uw-usedW, uh, pw, ph, gap);
+      rem1.positions.forEach(p=>pos.push({ x:p.x+usedW, y:p.y, w:p.w, h:p.h }));
+      total += rem1.count;
+      // bottom remainder
+      const usedH = count ? Math.max(...positions.map(p=>p.y+p.h)) + gap : 0;
+      const rem2 = findOptimalRemain(usedW, uh-usedH, pw, ph, gap);
+      rem2.positions.forEach(p=>pos.push({ x:p.x, y:p.y+usedH, w:p.w, h:p.h }));
+      total += rem2.count;
+      if (total > best.count) best = { count: total, positions: pos };
+    });
+    return best;
+  }
+
+  // --- drawing helper ---
+  function drawLayout(canvas, sw, sh, so, positions, layoutType = 'hybrid') {
+    const ctx = canvas.getContext('2d');
+    const cw = canvas.width, ch = canvas.height;
+    ctx.clearRect(0,0,cw,ch);
+    const scaleX = cw / sw, scaleY = ch / sh;
+    
+    // background
+    ctx.fillStyle = '#f8f9fa'; 
+    ctx.fillRect(0,0,cw,ch);
+    
+    // unusable offset
+    ctx.fillStyle = '#adb5bd';
+    ctx.fillRect(0,0,cw, so*scaleY);
+    ctx.fillRect(0,ch-(so*scaleY), cw, so*scaleY);
+    ctx.fillRect(0,0, so*scaleX, ch);
+    ctx.fillRect(cw-(so*scaleX),0, so*scaleX, ch);
+    
+    // usable area
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(so*scaleX, so*scaleY, (sw-2*so)*scaleX, (sh-2*so)*scaleY);
+    
+    // pieces
+    positions.forEach(p => {
+        // 레이아웃 타입과 조각의 방향에 따라 색상 결정
+        if (layoutType === 'horizontal') {
+            ctx.fillStyle = '#A7C7E7';  // 파스텔톤 파랑색
+        } else if (layoutType === 'vertical') {
+            ctx.fillStyle = '#C1E1C1';  // 파스텔톤 초록색
+        } else {  // hybrid
+            // 조각의 가로/세로 비율로 방향 판단
+            const isRotated = p.w < p.h;
+            ctx.fillStyle = isRotated ? '#FFB6C1' : '#A7C7E7';  // 회전된 조각은 파스텔톤 빨강색
+        }
+        
+        ctx.fillRect(
+            (p.x+so)*scaleX, (p.y+so)*scaleY,
+            p.w*scaleX, p.h*scaleY
+        );
+        ctx.strokeStyle = '#fff';
+        ctx.strokeRect(
+            (p.x+so)*scaleX, (p.y+so)*scaleY,
+            p.w*scaleX, p.h*scaleY
+        );
+    });
+  }
+
+  // --- UI wiring ---
+  const elems = {
+    sw:    document.getElementById('sheetWidth'),
+    sh:    document.getElementById('sheetHeight'),
+    so:    document.getElementById('sheetOffset'),
+    pw:    document.getElementById('pieceWidth'),
+    ph:    document.getElementById('pieceHeight'),
+    gap:   document.getElementById('pieceGap'),
+    c3d:   document.getElementById('curve3d'),
+    rad:   document.getElementById('radius'),
+    canvases: {
+      hybrid: document.getElementById('hybridCanvas'),
+      horiz:  document.getElementById('horizCanvas'),
+      vert:   document.getElementById('vertCanvas'),
+    }
+  };
+  const pieceSizeDisplay = document.getElementById('pieceSizeDisplay');
+  const hybridTitle      = document.getElementById('hybridTitle');
+  const horizTitle       = document.getElementById('horizTitle');
+  const vertTitle        = document.getElementById('vertTitle');
+  const updateBtn        = document.getElementById('updateBtn');
+
+  // radius toggle
+  elems.c3d.addEventListener('change', ()=>{
+    elems.rad.disabled = !elems.c3d.checked;
+  });
+
+  updateBtn.addEventListener('click', update);
+
+  window.addEventListener('resize', resizeCanvases);
+
+  function resizeCanvases(){
+    const h = window.innerHeight - document.querySelector('.app-header').offsetHeight - 40;
+    for (let id of ['hybrid','horiz','vert']){
+      const c = elems.canvases[id];
+      c.width  = c.clientWidth;
+      c.height = (id==='hybrid' ? h : (h-20)/2);
+    }
+  }
+
+  function update(){
+    const sw    = +elems.sw.value,
+          sh    = +elems.sh.value,
+          so    = +elems.so.value,
+          pw    = +elems.pw.value,
+          ph    = +elems.ph.value,
+          gap   = +elems.gap.value,
+          is3d  = elems.c3d.checked,
+          radius= +elems.rad.value;
+
+    let flat_pw = pw;
+    if(is3d && radius>0 && pw<=2*radius){
+        // 3D 곡선 상태의 가로 길이(pw)를 2D 평면 길이로 변환
+        const theta = 2 * Math.asin(pw/(2*radius));  // 중심각 (라디안)
+        flat_pw = radius * theta;  // 호의 길이 = 반지름 * 중심각
+        
+        // 디버깅을 위한 정보 출력
+        console.log(`3D 곡선 정보:
+            - 곡률 반경(R): ${radius}mm
+            - 3D 가로 길이: ${pw}mm
+            - 중심각: ${(theta * 180/Math.PI).toFixed(2)}도
+            - 2D 평면 길이: ${flat_pw.toFixed(2)}mm
+        `);
+    }
+
+    pieceSizeDisplay.textContent = is3d
+      ? `Curve: ${pw} mm → Flat: ${flat_pw.toFixed(1)} mm × ${ph} mm`
+      : `Piece size: ${pw} × ${ph} mm`;
+
+    const uw = sw - 2*so, uh = sh - 2*so;
+    const hybrid = solve(uw, uh, flat_pw, ph, gap);
+    const honly = calculateLayout(uw, uh, flat_pw, ph, gap);
+    const vonly = calculateLayout(uw, uh, ph, flat_pw, gap);
+
+    const area = uw*uh;
+    const eff = {
+      'Hybrid': hybrid.count * flat_pw * ph / area *100,
+      'Horizontal Only': honly.count * flat_pw * ph / area *100,
+      'Vertical Only': vonly.count * flat_pw * ph / area *100,
+    };
+    const sorted = Object.entries({
+      'Hybrid': hybrid.count,
+      'Horizontal Only': honly.count,
+      'Vertical Only': vonly.count
+    }).sort((a,b)=>b[1]-a[1]);
+
+    hybridTitle.textContent = `${sorted[0][0]}: ${sorted[0][1]} pcs, ${eff[sorted[0][0]].toFixed(1)}%`;
+    horizTitle.textContent  = `${sorted[1][0]}: ${sorted[1][1]} pcs, ${eff[sorted[1][0]].toFixed(1)}%`;
+    vertTitle.textContent   = `${sorted[2][0]}: ${sorted[2][1]} pcs, ${eff[sorted[2][0]].toFixed(1)}%`;
+
+    drawLayout(elems.canvases.hybrid, sw, sh, so, hybrid.positions, 'hybrid');
+    drawLayout(elems.canvases.horiz,  sw, sh, so, honly.positions, 'horizontal');
+    drawLayout(elems.canvases.vert,   sw, sh, so, vonly.positions, 'vertical');
+  }
+
+  // initial
+  resizeCanvases();
+  update();
+  </script>
+</body>
+</html>

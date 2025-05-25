@@ -1,0 +1,111 @@
+/* styles.css */
+/* Global & Layout */
+body {
+    margin:0;
+    font-family:"Segoe UI", Tahoma, sans-serif;
+    background:#f0f2f5;
+    color:#333;
+  }
+  .app-header {
+    padding:20px;
+    background:#343a40;
+    color:#fff;
+  }
+  .app-header h1 {
+    margin:0;
+    font-size:24px;
+  }
+  #pieceSizeDisplay {
+    margin-top:8px;
+    font-size:16px;
+  }
+  
+  /* Container Split */
+  .container {
+    display:flex;
+    height:calc(100vh - 80px);
+  }
+  .input-panel {
+    width:280px;
+    background:#fff;
+    padding:20px;
+    box-shadow:2px 0 5px rgba(0,0,0,0.1);
+    overflow-y:auto;
+  }
+  .input-panel h2 {
+    font-size:20px;
+    margin-bottom:15px;
+    color:#555;
+  }
+  .input-panel label {
+    display:block;
+    margin-bottom:12px;
+    font-size:14px;
+  }
+  .input-panel input[type="number"],
+  .input-panel input[type="checkbox"] {
+    margin-left:8px;
+  }
+  .input-panel button {
+    width:100%;
+    padding:10px;
+    background:#007bff;
+    border:none;
+    color:#fff;
+    border-radius:4px;
+    font-size:16px;
+    cursor:pointer;
+  }
+  .input-panel button:hover {
+    background:#0056b3;
+  }
+  
+  /* Canvas Grid */
+  .canvas-grid {
+    flex:1;
+    display:flex;
+    gap:20px;
+    padding:20px;
+    overflow:auto;
+  }
+  .canvas-container {
+    display:flex;
+    flex-direction:column;
+    background:#fff;
+    border-radius:8px;
+    box-shadow:0 2px 4px rgba(0,0,0,0.1);
+  }
+  .canvas-container.main {
+    flex:2;
+  }
+  .side-container {
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    gap:20px;
+  }
+  .canvas-container h2 {
+    margin:0;
+    padding:12px;
+    font-size:18px;
+    text-align:center;
+    color:#fff;
+    border-top-left-radius:8px;
+    border-top-right-radius:8px;
+  }
+  #hybridTitle {
+    background:#28a745; /* green */
+  }
+  #horizTitle {
+    background:#17a2b8; /* teal */
+  }
+  #vertTitle {
+    background:#ffc107; /* amber */
+    color:#333;
+  }
+  .canvas-container canvas {
+    flex:1;
+    border-bottom-left-radius:8px;
+    border-bottom-right-radius:8px;
+    background:#fafafa;
+  }
