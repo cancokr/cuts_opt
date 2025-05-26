@@ -10,7 +10,8 @@
 <body>
   <header class="app-header">
     <h1>Cutting Layout Optimizer</h1>
-    <div id="pieceSizeDisplay">Piece size: -- x -- mm</div>
+    <div id="pieceSizeDisplay">Piece size: -- x -- mm (Diagonal: -- in)</div>
+    <div id="pieceInfo" style="font-size: 0.67em; margin-top: 5px;">Area: -- mm² (-- in²) | Perimeter: -- mm (-- in)</div>
   </header>
   <div class="container">
     <div class="input-panel">
@@ -201,9 +202,25 @@
         `);
     }
 
+    // Calculate diagonal in mm and inches (1 inch = 25.4 mm)
+    const diagonalMm = Math.sqrt(flat_pw * flat_pw + ph * ph);
+    const diagonalIn = diagonalMm / 25.4;
+    
+    // Calculate area and perimeter
+    const areaMm = flat_pw * ph;
+    const areaIn = areaMm / (25.4 * 25.4);
+    const perimeterMm = 2 * (flat_pw + ph);
+    const perimeterIn = perimeterMm / 25.4;
+    
+    // Update piece size display with diagonal
     pieceSizeDisplay.textContent = is3d
-      ? `Curve: ${pw} mm → Flat: ${flat_pw.toFixed(1)} mm × ${ph} mm`
-      : `Piece size: ${pw} × ${ph} mm`;
+      ? `Curve: ${pw} mm → Flat: ${flat_pw.toFixed(1)} × ${ph} mm (${diagonalIn.toFixed(1)}" diagonal)`
+      : `Piece size: ${flat_pw.toFixed(1)} × ${ph} mm (${diagonalIn.toFixed(1)}" diagonal)`;
+      
+    // Update piece info with area and perimeter (metric only)
+    document.getElementById('pieceInfo').textContent = 
+      `Area: ${areaMm.toFixed(1)} mm² | ` +
+      `Perimeter: ${perimeterMm.toFixed(1)} mm`;
 
     const uw = sw - 2*so, uh = sh - 2*so;
     const hybrid = solve(uw, uh, flat_pw, ph, gap);
@@ -222,9 +239,21 @@
       'Vertical Only': vonly.count
     }).sort((a,b)=>b[1]-a[1]);
 
-    hybridTitle.textContent = `${sorted[0][0]}: ${sorted[0][1]} pcs, ${eff[sorted[0][0]].toFixed(1)}%`;
-    horizTitle.textContent  = `${sorted[1][0]}: ${sorted[1][1]} pcs, ${eff[sorted[1][0]].toFixed(1)}%`;
-    vertTitle.textContent   = `${sorted[2][0]}: ${sorted[2][1]} pcs, ${eff[sorted[2][0]].toFixed(1)}%`;
+    // Update titles with count and efficiency
+    hybridTitle.innerHTML = `${sorted[0][0]}: <strong>${sorted[0][1]} pcs</strong>, ${eff[sorted[0][0]].toFixed(1)}%<br>` +
+                           `<span style="font-size: 0.67em; color: #666;">` +
+                           `Total: ${(sorted[0][1] * flat_pw * ph / 1000000).toFixed(2)} m² | ` +
+                           `Cut: ${(sorted[0][1] * 2 * (flat_pw + ph) / 1000).toFixed(1)} m</span>`;
+    
+    horizTitle.innerHTML = `${sorted[1][0]}: <strong>${sorted[1][1]} pcs</strong>, ${eff[sorted[1][0]].toFixed(1)}%<br>` +
+                          `<span style="font-size: 0.67em; color: #666;">` +
+                          `Total: ${(sorted[1][1] * flat_pw * ph / 1000000).toFixed(2)} m² | ` +
+                          `Cut: ${(sorted[1][1] * 2 * (flat_pw + ph) / 1000).toFixed(1)} m</span>`;
+    
+    vertTitle.innerHTML = `${sorted[2][0]}: <strong>${sorted[2][1]} pcs</strong>, ${eff[sorted[2][0]].toFixed(1)}%<br>` +
+                         `<span style="font-size: 0.67em; color: #666;">` +
+                         `Total: ${(sorted[2][1] * flat_pw * ph / 1000000).toFixed(2)} m² | ` +
+                         `Cut: ${(sorted[2][1] * 2 * (flat_pw + ph) / 1000).toFixed(1)} m</span>`;
 
     drawLayout(elems.canvases.hybrid, sw, sh, so, hybrid.positions, 'hybrid');
     drawLayout(elems.canvases.horiz,  sw, sh, so, honly.positions, 'horizontal');
